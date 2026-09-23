@@ -1,10 +1,11 @@
 import { api } from '../lib/axios';
 import type { Page } from '../types/page.types';
-import type { CollaboratorSummary } from '../types/user.types';
+import type { Book, CollaboratorSummary } from '../types/user.types';
 
 export interface WorkspaceBook {
   _id: string;
   title: string;
+  isPublished: boolean;
   ownerId: string;
   collaborators: CollaboratorSummary[];
   editors: CollaboratorSummary[];
@@ -25,6 +26,10 @@ export const editApi = {
   list: async (bookId: string) => (await api.get<{ requests: EditRequest[] }>(`/books/${bookId}/edit-requests`)).data.requests,
   pending: async () => (await api.get<{ requests: Array<EditRequest & { bookId: string; bookTitle: string }> }>('/books/edit-requests/pending')).data.requests,
   resolve: async (bookId: string, requestId: string, status: 'approved' | 'rejected') => (await api.patch<{ request: EditRequest }>(`/books/${bookId}/edit-requests/${requestId}`, { status })).data.request,
+};
+
+export const bookApi = {
+  publish: async (bookId: string) => (await api.post<{ book: Book }>(`/books/${bookId}/publish`)).data.book,
 };
 
 export interface EditRequest {

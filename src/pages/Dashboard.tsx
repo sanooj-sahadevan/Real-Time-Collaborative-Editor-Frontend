@@ -12,7 +12,7 @@ import { Library, Plus } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const { books, loading: booksLoading, error, createBook, deleteBook, requestAccess } = useBooks();
+  const { books, loading: booksLoading, error, createBook, deleteBook, requestAccess, publishBook } = useBooks();
   const [showModal, setShowModal] = useState(false);
 
   if (authLoading) {
@@ -29,6 +29,9 @@ const Dashboard: React.FC = () => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const ownedBooks = books.filter((book) => book.ownerId === user._id);
+  const sharedBooks = books.filter((book) => book.ownerId !== user._id);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f6f3ed]">
@@ -85,11 +88,21 @@ const Dashboard: React.FC = () => {
               </button>
             </div>
           ) : (
-            /* Book grid */
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {books.map((book) => (
-                <BookCard key={book._id} book={book} userId={user._id} onDelete={deleteBook} onRequestAccess={requestAccess} />
-              ))}
+            <div className="space-y-12">
+              <section aria-labelledby="owned-books-heading">
+                <div className="mb-5 flex items-end justify-between border-b border-[#ded8ce] pb-3">
+                  <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#b45f00]">Your library</p><h2 id="owned-books-heading" className="mt-1 font-serif text-2xl font-semibold text-[#20252b]">Your Books</h2></div>
+                  <span className="text-xs font-semibold text-[#8b9391]">{ownedBooks.length} {ownedBooks.length === 1 ? 'book' : 'books'}</span>
+                </div>
+                {ownedBooks.length === 0 ? <div className="rounded-xl border border-dashed border-[#d9d3c9] bg-[#fffdf8]/70 px-5 py-8 text-sm text-[#7b8385]">Books you create will appear here.</div> : <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{ownedBooks.map((book) => <BookCard key={book._id} book={book} userId={user._id} onDelete={deleteBook} onRequestAccess={requestAccess} onPublish={publishBook} />)}</div>}
+              </section>
+              {sharedBooks.length > 0 && <section aria-labelledby="shared-books-heading">
+                <div className="mb-5 flex items-end justify-between border-b border-[#ded8ce] pb-3">
+                  <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#b45f00]">Collaborative shelf</p><h2 id="shared-books-heading" className="mt-1 font-serif text-2xl font-semibold text-[#20252b]">Shared With You</h2></div>
+                  <span className="text-xs font-semibold text-[#8b9391]">{sharedBooks.length} {sharedBooks.length === 1 ? 'book' : 'books'}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{sharedBooks.map((book) => <BookCard key={book._id} book={book} userId={user._id} onDelete={deleteBook} onRequestAccess={requestAccess} onPublish={publishBook} />)}</div>
+              </section>}
             </div>
           )}
         </div>

@@ -6,23 +6,30 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import BookWorkspace from './pages/BookWorkspace';
 import AuthenticatedLayout from './components/common/AuthenticatedLayout';
+import PublicOnlyLayout from './components/common/PublicOnlyLayout';
+import { ToastProvider } from './context/ToastContext';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ToastProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route element={<PublicOnlyLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
           <Route element={<AuthenticatedLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/books/:bookId" element={<BookWorkspace />} />
           </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ToastProvider>
   );
 }
 

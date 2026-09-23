@@ -20,6 +20,7 @@ export interface Book {
   collaborators: Array<string | CollaboratorSummary>;
   createdAt: string;
   ownerName?: string;
+  isPublished: boolean;
   canEdit?: boolean;
   editRequestStatus?: 'pending' | 'approved' | 'rejected' | null;
 }

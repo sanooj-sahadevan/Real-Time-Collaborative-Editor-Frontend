@@ -3,9 +3,11 @@ import { Navigate, Outlet } from 'react-router-dom';
 import Header, { type EditNotification } from './Header';
 import { useAuth } from '../../hooks/useAuth';
 import { editApi } from '../../api/pages';
+import { useToast } from '../../context/ToastContext';
 
 const AuthenticatedLayout = () => {
   const { user, loading: authLoading, logout } = useAuth();
+  const { showToast } = useToast();
   const [notifications, setNotifications] = useState<EditNotification[]>([]);
 
   const loadNotifications = useCallback(async () => {
@@ -24,8 +26,13 @@ const AuthenticatedLayout = () => {
   }, [loadNotifications]);
 
   const resolveNotification = async (request: EditNotification, status: 'approved' | 'rejected') => {
-    await editApi.resolve(request.bookId, request._id, status);
-    setNotifications((current) => current.filter((item) => item._id !== request._id));
+    try {
+      await editApi.resolve(request.bookId, request._id, status);
+      setNotifications((current) => current.filter((item) => item._id !== request._id));
+      showToast(status === 'approved' ? 'Edit access approved.' : 'Edit request rejected.', 'success');
+    } catch {
+      showToast('Unable to update the edit request.', 'error');
+    }
   };
 
   if (authLoading) return <div className="flex min-h-screen items-center justify-center bg-[#f6f3ed] text-[#7b8385]">Loading...</div>;

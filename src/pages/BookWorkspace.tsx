@@ -14,6 +14,7 @@ import type { Page } from '../types/page.types';
 import CollaborativeEditor from '../components/books/CollaborativeEditor';
 import { useAppDispatch } from '../store/hooks';
 import { setBookCollaborators } from '../store/collaborationSlice';
+import { useToast } from '../context/ToastContext';
 
 const SortablePage = ({ page, active, canEdit, onSelect, onRename, onDelete }: { page: Page; active: boolean; canEdit: boolean; onSelect: () => void; onRename: () => void; onDelete: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: page._id });
@@ -30,7 +31,7 @@ const SortablePage = ({ page, active, canEdit, onSelect, onRename, onDelete }: {
 const BookWorkspace = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const { user, loading: authLoading } = useAuth();
-  const { books, loading: booksLoading } = useBooks();
+  const { books, loading: booksLoading, publishBook } = useBooks();
   const { pages, book: workspaceBook, loading, error, createPage, renamePage, deletePage, reorderPages } = usePages(bookId || '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -39,6 +40,7 @@ const BookWorkspace = () => {
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [requestState, setRequestState] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const dispatch = useAppDispatch();
+  const { showToast } = useToast();
   const activePageId = selectedId || pages[0]?._id;
 
   useEffect(() => {
@@ -71,13 +73,28 @@ const BookWorkspace = () => {
   const startRename = (page: Page) => { setRenamingId(page._id); setRenameValue(page.title); };
   const finishRename = async () => { if (renamingId && renameValue.trim()) await renamePage(renamingId, renameValue.trim()); setRenamingId(null); };
   const saveTitle = async () => { if (selected && titleDraft.trim() && titleDraft.trim() !== selected.title) await renamePage(selected._id, titleDraft.trim()); };
-  const requestEditing = async () => { await editApi.request(bookId || ''); setRequestState('pending'); };
-  const resolveRequest = async (request: EditRequest, status: 'approved' | 'rejected') => { await editApi.resolve(bookId || '', request._id, status); setEditRequests((items) => items.map((item) => item._id === request._id ? { ...item, status } : item)); };
+  const requestEditing = async () => {
+    try { await editApi.request(bookId || ''); setRequestState('pending'); showToast('Edit request sent.', 'success'); }
+    catch { showToast('Unable to send the edit request.', 'error'); }
+  };
+  const resolveRequest = async (request: EditRequest, status: 'approved' | 'rejected') => {
+    try {
+      await editApi.resolve(bookId || '', request._id, status);
+      setEditRequests((items) => items.map((item) => item._id === request._id ? { ...item, status } : item));
+      showToast(status === 'approved' ? 'Edit access approved.' : 'Edit request rejected.', 'success');
+    } catch { showToast('Unable to update the edit request.', 'error'); }
+  };
 
   return (
     <main className="flex min-h-screen flex-col bg-[#f6f3ed] text-[#20252b]">
       {error && <Alert severity="error" square>{error}</Alert>}
-      {!canEdit && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ead8b5] bg-[#fff5df] px-5 py-3 text-sm text-[#7c4a08] sm:px-8"><span>{currentRequestState === 'pending' ? 'Edit access is waiting for the book owner.' : currentRequestState === 'rejected' ? 'Your edit request was rejected.' : 'You can read this book, but editing requires owner approval.'}</span>{currentRequestState !== 'pending' && currentRequestState !== 'approved' && <button type="button" onClick={() => void requestEditing()} className="rounded-lg bg-[#263238] px-3 py-2 text-xs font-semibold text-white">Request edit access</button>}</div>}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e1dbd1] bg-[#fffdf8] px-5 py-3 text-sm sm:px-8">
+        <span className="flex flex-wrap items-center gap-2 text-[#7b8385]"><span className="font-semibold text-[#20252b]">{book.title}</span><span className="rounded-full bg-[#f3eee6] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em]">{book.isPublished ? 'Published' : 'Private draft'}</span>{!canEdit && <span className="font-semibold text-[#985c09]">Read Only</span>}{canEdit && !book.isPublished && <span className="font-semibold text-[#7b8385]">Owner</span>}</span>
+        <div className="flex items-center gap-2">
+          {canEdit && !book.isPublished && <button type="button" onClick={() => void publishBook(book._id)} className="rounded-lg bg-[#263238] px-3 py-2 text-xs font-semibold text-white">Publish</button>}
+          {!canEdit && book.isPublished && <>{currentRequestState === 'pending' ? <span className="text-xs font-semibold text-[#985c09]">Edit request pending</span> : currentRequestState === 'approved' ? <span className="text-xs font-semibold text-[#4d7f59]">Editing approved</span> : <button type="button" onClick={() => void requestEditing()} className="rounded-lg bg-[#263238] px-3 py-2 text-xs font-semibold text-white">Request Edit Access</button>}</>}
+        </div>
+      </div>
       {workspaceBook?.ownerId === user._id && editRequests.some((request) => request.status === 'pending') && <div className="border-b border-[#e1dbd1] bg-[#fffdf8] px-5 py-4 sm:px-8"><p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[#b45f00]">Access requests</p><div className="flex flex-wrap gap-2">{editRequests.filter((request) => request.status === 'pending').map((request) => { const requester = typeof request.userId === 'string' ? request.userId : request.userId.username; return <div key={request._id} className="flex items-center gap-2 rounded-lg border border-[#e4ded4] bg-[#faf7f1] px-3 py-2 text-sm"><span>{requester}</span><button type="button" onClick={() => void resolveRequest(request, 'approved')} className="font-semibold text-[#4d7f59]">Approve</button><button type="button" onClick={() => void resolveRequest(request, 'rejected')} className="font-semibold text-[#b9574e]">Reject</button></div>; })}</div></div>}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside className="w-full border-b border-[#e1dbd1] bg-[#fffdf8] md:w-72 md:border-b-0 md:border-r"><div className="flex items-center justify-between px-5 py-5"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#b45f00]">Structure</p><h2 className="mt-1 font-serif text-xl font-semibold">Pages</h2></div>{canEdit && <Tooltip title="New page"><IconButton onClick={() => void handleCreate()} aria-label="New page" sx={{ color: '#b45f00', backgroundColor: '#f7e6c5', '&:hover': { backgroundColor: '#f3d79f' } }}><Plus size={18} /></IconButton></Tooltip>}</div>

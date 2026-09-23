@@ -48,6 +48,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       // Always clear local state and redirect, even if the API call fails
       setUser(null);
+      sessionStorage.setItem('papertrail-toast', JSON.stringify({ message: 'You have been logged out.', severity: 'success' }));
       window.location.replace('/login');
     }
   };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/axios';
 import { useAuth } from './useAuth';
+import { useToast } from '../context/ToastContext';
 
 export const useRegister = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ export const useRegister = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { showToast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -35,9 +37,12 @@ export const useRegister = () => {
       };
       const res = await api.post('/auth/signup', payload);
       login(res.data.user);
+      showToast('Account created successfully.', 'success');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'An error occurred during registration');
+      const message = err.response?.data?.error || 'An error occurred during registration';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { pageApi } from '../api/pages';
 import type { Page } from '../types/page.types';
 import type { WorkspaceBook } from '../api/pages';
+import { useToast } from '../context/ToastContext';
 
 export const usePages = (bookId: string) => {
+  const { showToast } = useToast();
   const [pages, setPages] = useState<Page[]>([]);
   const [book, setBook] = useState<WorkspaceBook | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,19 +26,37 @@ export const usePages = (bookId: string) => {
   }, [fetchPages]);
 
   const createPage = async () => {
-    const page = await pageApi.create(bookId, 'Untitled page');
-    setPages((current) => [...current, page].sort((a, b) => a.order - b.order));
-    return page;
+    try {
+      const page = await pageApi.create(bookId, 'Untitled page');
+      setPages((current) => [...current, page].sort((a, b) => a.order - b.order));
+      showToast('Page created.', 'success');
+      return page;
+    } catch (error) {
+      showToast('Unable to create the page.', 'error');
+      throw error;
+    }
   };
 
   const renamePage = async (pageId: string, title: string) => {
-    const page = await pageApi.update(pageId, { title });
-    setPages((current) => current.map((item) => item._id === pageId ? page : item));
+    try {
+      const page = await pageApi.update(pageId, { title });
+      setPages((current) => current.map((item) => item._id === pageId ? page : item));
+      showToast('Page renamed.', 'success');
+    } catch (error) {
+      showToast('Unable to rename the page.', 'error');
+      throw error;
+    }
   };
 
   const deletePage = async (pageId: string) => {
-    const nextPages = await pageApi.remove(pageId);
-    setPages(nextPages);
+    try {
+      const nextPages = await pageApi.remove(pageId);
+      setPages(nextPages);
+      showToast('Page deleted.', 'success');
+    } catch (error) {
+      showToast('Unable to delete the page.', 'error');
+      throw error;
+    }
   };
 
   const reorderPages = async (pageIds: string[]) => {
@@ -46,8 +66,14 @@ export const usePages = (bookId: string) => {
       return page ? { ...page, order } : null;
     }).filter((page): page is Page => page !== null);
     setPages(reordered);
-    try { setPages(await pageApi.reorder(bookId, pageIds)); }
-    catch { setPages(previous); setError('Unable to save page order.'); }
+    try {
+      setPages(await pageApi.reorder(bookId, pageIds));
+      showToast('Page order saved.', 'success');
+    } catch {
+      setPages(previous);
+      setError('Unable to save page order.');
+      showToast('Unable to save page order.', 'error');
+    }
   };
 
   return { pages, book, loading, error, createPage, renamePage, deletePage, reorderPages };
