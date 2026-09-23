@@ -1,48 +1,68 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/axios';
-import { useAuth } from './useAuth';
-import { useToast } from '../context/ToastContext';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../lib/axios";
+import { useAuth } from "./useAuth";
+import { useToast } from "../context/ToastContext";
+import { registerSchema } from "../schemas/authSchemas";
+import { getErrorMessage } from "../utils/errorMessage";
+
+interface RegisterFormState {
+  username: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  age: string;
+}
 
 export const useRegister = () => {
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    phone: '',
-    password: '',
-    age: '',
+  const [formData, setFormData] = useState<RegisterFormState>({
+    username: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+    age: "",
   });
-  const [error, setError] = useState('');
+
   const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
   const { login } = useAuth();
   const { showToast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.id]: e.target.value,
-    });
+    const { id, value } = e.target;
+
+    setFormData((previous) => ({
+      ...previous,
+      [id]: value,
+    }));
+
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError('');
+
+    const result = registerSchema.safeParse(formData);
+    if (!result.success) {
+      showToast(result.error.issues[0]?.message ?? "Please check the form.", "error");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const payload = {
-        ...formData,
-        age: Number(formData.age),
-      };
-      const res = await api.post('/auth/signup', payload);
-      login(res.data.user);
-      showToast('Account created successfully.', 'success');
-      navigate('/dashboard');
-    } catch (err: any) {
-      const message = err.response?.data?.error || 'An error occurred during registration';
-      setError(message);
-      showToast(message, 'error');
+      const { confirmPassword: _confirmPassword, ...payload } = result.data;
+      const response = await api.post("/auth/signup", payload);
+
+      login(response.data.user);
+
+      showToast("Account created successfully.", "success");
+
+      navigate("/dashboard");
+    } catch (error: unknown) {
+      showToast(getErrorMessage(error, "Unable to create your account. Please try again."), "error");
     } finally {
       setLoading(false);
     }
@@ -51,7 +71,6 @@ export const useRegister = () => {
   return {
     formData,
     handleChange,
-    error,
     loading,
     handleRegister,
   };
